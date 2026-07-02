@@ -43,24 +43,48 @@ if not os.path.exists(feat_path):
         "ptb-xl-a-comprehensive-electrocardiographic-feature-dataset-1.0.1",
         "features", "12sl_features.csv")
 
-features = pd.read_csv(feat_path, index_col=0)
+features = pd.read_csv(feat_path)
+assert len(features) == len(meta), f"Row mismatch: meta={len(meta)}, features={len(features)}"
+features.index = meta.index
+features.index.name = "ecg_id"
 print(f"Features loaded: {features.shape}")
 
 # ── Merge metadata with features ──────────────────────────────
 df = meta.join(features, how="inner")
 print(f"Merged dataset: {df.shape}")
 
-# ── Build binary arrhythmia label ─────────────────────────────
+
+
+# ── Build binary arrhythmia label (rhythm-only, clinically correct) ──
+# The old rule labeled ANY non-normal code as "arrhythmia", which wrongly
+# caught heart attacks (MI), ST/T changes, hypertrophy, etc.
+# We now use PTB-XL's own scp_statements.csv to identify RHYTHM codes,
+# then treat sinus-family rhythms (SR, STACH, SBRAD, SARRH) as normal.
 import ast
 
-NORMAL_CODES = {"NORM", "SR", "NSR", "SBRAD", "STACH", "SARRH", "PACE"}
+# Load the code categories (which codes are rhythm vs diagnostic vs form)
+scp_stmt_path = os.path.join(DATA_DIR, "scp_statements.csv")
+if not os.path.exists(scp_stmt_path):
+    scp_stmt_path = os.path.join(DATA_DIR,
+        "ptb-xl-a-comprehensive-electrocardiographic-feature-dataset-1.0.1",
+        "scp_statements.csv")
+
+scp_stmt = pd.read_csv(scp_stmt_path, index_col=0)
+RHYTHM_CODES = set(scp_stmt.index[scp_stmt["rhythm"] == 1.0])
+print(f"Rhythm codes from scp_statements.csv ({len(RHYTHM_CODES)}): "
+      f"{sorted(RHYTHM_CODES)}")
+
+# Sinus-family = normal rhythm (NOT arrhythmia).
+# Everything else in RHYTHM_CODES (AFIB, AFLT, PACE, PVC-related, etc.) = arrhythmia.
+NORMAL_RHYTHM = {"SR", "STACH", "SBRAD", "SARRH"}
 
 def is_arrhythmia(scp_str):
+    """1 = record has a non-sinus rhythm code; 0 = otherwise."""
     try:
         scp_dict = ast.literal_eval(scp_str)
         codes = set(scp_dict.keys())
-        non_normal = codes - NORMAL_CODES
-        return 1 if non_normal else 0
+        arrhythmia_codes = (codes & RHYTHM_CODES) - NORMAL_RHYTHM
+        return 1 if arrhythmia_codes else 0
     except Exception:
         return 0
 
@@ -93,7 +117,7 @@ for scp_str in df[df["label"]==1]["scp_codes"]:
     try:
         scp_dict = ast.literal_eval(scp_str)
         for code in scp_dict:
-            if code not in NORMAL_CODES:
+            if code in RHYTHM_CODES and code not in NORMAL_RHYTHM:
                 subtype_counts[code] += 1
     except Exception:
         pass
@@ -117,7 +141,7 @@ for bar, val, pct in zip(bars, [n_normal, n_arrhythmia],
              f"{val:,}\n({pct:.1f}%)", ha="center", fontweight="bold", fontsize=11)
 ax1.set_ylim(0, n_normal * 1.15)
 
-wedges, texts, autotexts = ax2.pie(
+ax2.pie(
     [n_normal, n_arrhythmia],
     labels=[f"Non-arrhythmia\n{n_normal:,} ({n_normal/total*100:.1f}%)",
             f"Arrhythmia\n{n_arrhythmia:,} ({n_arrhythmia/total*100:.1f}%)"],
@@ -164,3 +188,5 @@ val_df.to_csv(os.path.join(OUTPUT_DIR, "data", "val_raw.csv"))
 test_df.to_csv(os.path.join(OUTPUT_DIR, "data", "test_raw.csv"))
 print("\nData splits saved to outputs/data/")
 print("\n✅ Step 1 complete.")
+
+
