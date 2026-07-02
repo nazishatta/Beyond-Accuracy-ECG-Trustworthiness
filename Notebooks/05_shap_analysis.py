@@ -33,8 +33,8 @@ rf = joblib.load(os.path.join(MODELS_DIR, "random_forest.pkl"))
 
 print("Loading test set...")
 test = pd.read_csv(os.path.join(DATA_DIR, "test_processed.csv"))
-X_test = test.drop("arrhythmia", axis=1)
-y_test = test["arrhythmia"]
+X_test = test.drop("label", axis=1)
+y_test = test["label"]
 print(f"  Test set: {X_test.shape[0]} rows x {X_test.shape[1]} features")
 
 # Sample 500 rows for SHAP (computational efficiency)
@@ -98,3 +98,4 @@ print(f"\nFull feature importance saved: {os.path.join(RESULTS_DIR, 'shap_featur
 
 print("\nAll done! Check outputs/plots/ for poster-ready figures.")
 print("\n[DONE] Step 5 complete.")
+
