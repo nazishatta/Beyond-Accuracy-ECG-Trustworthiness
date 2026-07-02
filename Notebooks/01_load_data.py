@@ -44,9 +44,7 @@ if not os.path.exists(feat_path):
         "features", "12sl_features.csv")
 
 features = pd.read_csv(feat_path)
-assert len(features) == len(meta), f"Row mismatch: meta={len(meta)}, features={len(features)}"
-features.index = meta.index
-features.index.name = "ecg_id"
+features = features.set_index("ecg_id")
 print(f"Features loaded: {features.shape}")
 
 # ── Merge metadata with features ──────────────────────────────
@@ -188,5 +186,6 @@ val_df.to_csv(os.path.join(OUTPUT_DIR, "data", "val_raw.csv"))
 test_df.to_csv(os.path.join(OUTPUT_DIR, "data", "test_raw.csv"))
 print("\nData splits saved to outputs/data/")
 print("\n✅ Step 1 complete.")
+
 
 
