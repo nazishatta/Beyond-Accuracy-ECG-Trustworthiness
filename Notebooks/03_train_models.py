@@ -39,7 +39,7 @@ models = {
     ),
     "random_forest": RandomForestClassifier(
         n_estimators=200, max_depth=20, min_samples_leaf=5,
-        class_weight="balanced", random_state=RANDOM_SEED, n_jobs=-1
+        random_state=RANDOM_SEED, n_jobs=-1
     ),
     "xgboost": XGBClassifier(
         n_estimators=200, max_depth=6, learning_rate=0.1,
@@ -60,3 +60,4 @@ for name, model in models.items():
     print(f"  Done in {elapsed:.1f}s — saved to {path}")
 
 print("\n✅ Step 3 complete. All models saved to outputs/models/")
+
